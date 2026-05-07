@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   FileAudio, 
@@ -97,7 +97,7 @@ export default function App() {
             transition={{ delay: 0.1 }}
             className="text-4xl font-light tracking-tight mb-2"
           >
-            AudioNotes <span className="font-semibold text-black">AI</span>
+            Bium Audio <span className="font-semibold text-black">AI</span>
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0 }}
@@ -155,6 +155,9 @@ export default function App() {
                 >
                   Generate Notes
                 </button>
+                <br />
+                <p className="text-gray-400 text-sm text-center">Made by @techbium</p>
+                
               </motion.div>
             ) : status === 'processing' ? (
               <motion.div
@@ -172,7 +175,7 @@ export default function App() {
                   <div>
                     <h2 className="text-2xl font-medium mb-2">Analyzing Audio</h2>
                     <p className="text-gray-400 max-w-xs mx-auto">
-                      Gemini is transcribing and structuring your notes. This may take a minute...
+                      Bium audio AI is transcribing and structuring your notes. This may take a minute...
                     </p>
                   </div>
                 </div>
