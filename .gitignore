@@ -1,0 +1,17 @@
+node_modules/
+build/
+dist/
+coverage/
+.vite/
+*.tsbuildinfo
+
+# Environment files (keep template tracked)
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Editor and OS files
+.vscode/
+.idea/
+Thumbs.db

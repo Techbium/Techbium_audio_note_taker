@@ -1,0 +1,6 @@
+{
+  "name": "AudioNotes AI",
+  "description": "Transform any audio lecture or recording into structured student notes and export to Word.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
