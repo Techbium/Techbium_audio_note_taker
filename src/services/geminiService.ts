@@ -1,25 +1,24 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI } from '@google/genai';
+import type { NoteGenerationMode } from '../types/audioNotes';
+import { NOTE_MODE_OPTIONS } from '../types/audioNotes';
 
 const getGeminiApiKey = () =>
-  import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY || "";
+  import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY || '';
 
 const getAiClient = () => {
   const apiKey = getGeminiApiKey();
 
   if (!apiKey) {
     throw new Error(
-      "Missing Gemini API key. Add VITE_GEMINI_API_KEY to your .env file and restart the app.",
+      'Missing Gemini API key. Add VITE_GEMINI_API_KEY to your .env file and restart the app.',
     );
   }
 
   return new GoogleGenAI({ apiKey });
 };
 
-export async function generateStudentNotes(audioBase64: string, mimeType: string) {
-  const model = "gemini-2.5-flash";
-  
-  const systemInstruction = `You are an elite academic scribe specializing in creating exhaustive, high-fidelity student notes. 
-The user is using these notes to catch up on lectures they MISSSED, so you must be extremely thorough, explaining concepts from the ground up.
+const DEFAULT_MASTER_NOTE_INSTRUCTION = `You are an elite academic scribe specializing in creating exhaustive, high-fidelity student notes.
+The user is using these notes to catch up on lectures they missed, so you must be extremely thorough, explaining concepts from the ground up.
 
 Your goal is to transcribe and then transform the provided audio into a comprehensive "Master Note" set.
 Do not summarize; instead, ELABORATE. Treat this as a complete substitute for attending the class.
@@ -38,6 +37,77 @@ Include these sections in this EXACT order:
 
 Formatting: Use clean Markdown with clear hierarchies (H1, H2, H3). Use bolding and bullet points for readability but preserve the length and depth of explanations.`;
 
+function systemInstructionForMode(mode: NoteGenerationMode): string {
+  const always = `You receive lecture or meeting audio. Reply in Markdown only (no preamble like "Here are your notes"). Stay faithful to what was actually said; do not invent facts.`;
+
+  switch (mode) {
+    case 'verbatim':
+      return `${always}
+
+You are a professional transcriber. Produce a faithful word-for-word (or as close as the audio allows) account of what was said.
+Preserve speaking order and natural phrasing, including light disfluencies when they matter.
+Use paragraph breaks where the speaker pauses or changes topic.
+Do not summarize, explain, or add study aids unless the user's extra instructions explicitly ask for that.
+Optional: one H1 at the top only if a clear session title is stated in the audio; otherwise begin with the transcript.`;
+
+    case 'studentNote':
+      return `${always}
+
+Create structured study notes for someone who missed the session.
+Use Markdown with: an H1 title, 2-4 sentences of context, bullet **Key takeaways**, topic sections with concise explanations, **bold** important terms, and 3-5 short review questions at the end.
+Aim for moderate depth—readable and scannable, not a textbook-length write-up.`;
+
+    case 'summary':
+      return `${always}
+
+Provide a concise summary: H1 title, two short overview paragraphs, then 5-10 tight bullet key points.
+Keep total length modest (roughly under 600 words) unless the source clearly needs more.
+Skip long narrative, glossary, and exhaustive study sections unless the user's extra instructions request them.`;
+
+    case 'detailedNote':
+      return `${always}
+
+Produce thorough course-style notes in Markdown with nested headings (H1/H2/H3), detailed explanations, concrete examples taken from the audio, a **Technical glossary** for important terms, and a **Study guide** (questions with brief answer cues).
+Organize sections flexibly, but remain comprehensive and precise—without following the rigid 7-part default template.`;
+
+    case 'default':
+    default:
+      return `${always}
+
+${DEFAULT_MASTER_NOTE_INSTRUCTION}`;
+  }
+}
+
+export type GenerateAudioNotesOptions = {
+  mode?: NoteGenerationMode;
+  /** Optional user preferences (tone, section names, language, etc.). */
+  stylePrompt?: string;
+};
+
+function modeLabel(mode: NoteGenerationMode): string {
+  return NOTE_MODE_OPTIONS.find((o) => o.value === mode)?.label ?? mode;
+}
+
+export async function generateAudioNotes(
+  audioBase64: string,
+  mimeType: string,
+  options: GenerateAudioNotesOptions = {},
+) {
+  const model = 'gemini-2.5-flash';
+  const mode = options.mode ?? 'default';
+
+  let systemInstruction = systemInstructionForMode(mode);
+  const extra = options.stylePrompt?.trim();
+  if (extra) {
+    systemInstruction += `
+
+Additional formatting or style preferences from the user—apply them on top of the selected mode. If anything conflicts, prioritize factual fidelity to the audio, then these preferences:
+${extra}`;
+  }
+
+  const label = modeLabel(mode);
+  const userText = `Produce the requested output from this audio using mode "${label}".`;
+
   try {
     const ai = getAiClient();
     const response = await ai.models.generateContent({
@@ -52,7 +122,7 @@ Formatting: Use clean Markdown with clear hierarchies (H1, H2, H3). Use bolding 
               },
             },
             {
-              text: "Please take detailed student notes based on this audio.",
+              text: userText,
             },
           ],
         },
@@ -63,17 +133,17 @@ Formatting: Use clean Markdown with clear hierarchies (H1, H2, H3). Use bolding 
     });
 
     if (!response.text) {
-      throw new Error("Gemini returned an empty response.");
+      throw new Error('Gemini returned an empty response.');
     }
 
     return response.text;
   } catch (error) {
-    console.error("Gemini Error:", error);
+    console.error('Gemini Error:', error);
 
     if (error instanceof Error) {
       throw new Error(error.message);
     }
 
-    throw new Error("Unexpected error while processing audio.");
+    throw new Error('Unexpected error while processing audio.');
   }
 }
